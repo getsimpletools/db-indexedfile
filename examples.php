@@ -6,8 +6,6 @@ require __DIR__ . '/src/Simpletools/Db/IndexedFile/File.php';
 require __DIR__ . '/src/Simpletools/Db/IndexedFile/IndexStore/IndexStoreInterface.php';
 require __DIR__ . '/src/Simpletools/Db/IndexedFile/IndexStore/ArrayIndexStore.php';
 
-$start = microtime(true);
-
 use Simpletools\Db\IndexedFile;
 
 //used by default
@@ -34,3 +32,8 @@ $indexedFile->upsert('key',function($row){
 });
 
 var_dump($indexedFile->read('key'));
+
+foreach($indexedFile->iterate() as $row)
+{
+    var_dump($row);
+}

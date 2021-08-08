@@ -1,3 +1,6 @@
+### 1.0.2 (2021-08-08)
+1. **Examples update**
+
 ### 1.0.1 (2021-08-08)
 1. **Autoload path correction**
 
