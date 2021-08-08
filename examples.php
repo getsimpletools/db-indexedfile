@@ -2,9 +2,9 @@
 /*
  * Normally autoloaded
  */
-require __DIR__ .'/src/Db/IndexedFile/File.php';
-require __DIR__ .'/src/Db/IndexedFile/IndexStore/IndexStoreInterface.php';
-require __DIR__ .'/src/Db/IndexedFile/IndexStore/ArrayIndexStore.php';
+require __DIR__ . '/src/Simpletools/Db/IndexedFile/File.php';
+require __DIR__ . '/src/Simpletools/Db/IndexedFile/IndexStore/IndexStoreInterface.php';
+require __DIR__ . '/src/Simpletools/Db/IndexedFile/IndexStore/ArrayIndexStore.php';
 
 $start = microtime(true);
 
