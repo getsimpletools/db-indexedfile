@@ -14,24 +14,25 @@ class File
 
     public static function indexStoreClass($className)
     {
-        if(!class_exists($className))
-            throw new \Exception("$className not found",404);
-
         self::$_indexStoreClass = $className;
     }
 
     public function __construct($dbFilePath = null, $truncate = false)
     {
-        $indexStore = self::$_indexStoreClass;
-        if(!$indexStore)
-            $indexStore = 'Simpletools\Db\IndexedFile\IndexStore\ArrayIndexStore';
+        $indexStoreClass = self::$_indexStoreClass;
+        if(!$indexStoreClass)
+            $indexStoreClass = 'Simpletools\Db\IndexedFile\IndexStore\ArrayIndexStore';
+        elseif(!class_exists($indexStoreClass))
+            throw new \Exception("$indexStoreClass not found",404);
 
-        $this->_dbIndex = new $indexStore();
+        $this->_dbIndex = new $indexStoreClass();
 
         if (!$dbFilePath)
             $this->_dbStream = tmpfile();
         else
             $this->_dbStream = fopen($dbFilePath, 'c+');
+
+        flock($this->_dbStream,LOCK_EX);
 
         if(!$truncate && $dbFilePath)
         {
@@ -184,9 +185,9 @@ class File
 
     public function iterate()
     {
-        foreach($this->_iterate() as $row)
+        foreach($this->_iterate() as $key => $value)
         {
-            yield $row;
+            yield $key => $value;
         }
     }
 
@@ -212,13 +213,15 @@ class File
 
             if(isset($row->log)) continue;
 
-            yield $row->v;
+            yield $row->k => $row->v;
         }
     }
 
     public function __destruct()
     {
-        if ($this->_dbStream) {
+        if ($this->_dbStream)
+        {
+            flock($this->_dbStream,LOCK_UN);
             fclose($this->_dbStream);
             unset($this->_dbIndex);
         }

@@ -1,7 +1,7 @@
 {
   "name": "simpletools/db-indexedfile",
   "type": "library",
-  "description": "Simpletools IndexedFile Client",
+  "description": "High-throughput non-concurrent NoSQL key-value file-based database with a memory-backed index.",
   "keywords": ["framework"],
   "homepage": "http://www.getsimpletools.com/",
   "license": "BSD-3-Clause",

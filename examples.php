@@ -9,7 +9,7 @@ require __DIR__ . '/src/Simpletools/Db/IndexedFile/IndexStore/ArrayIndexStore.ph
 use Simpletools\Db\IndexedFile;
 
 //used by default
-//IndexedFile::indexStoreClass('Simpletools\Db\IndexedFile\IndexStore\ArrayIndexStore');
+//IndexedFile\File::indexStoreClass('Simpletools\Db\IndexedFile\IndexStore\ArrayIndexStore');
 
 $indexedFile = new IndexedFile\File();
 
@@ -33,7 +33,7 @@ $indexedFile->upsert('key',function($row){
 
 var_dump($indexedFile->read('key'));
 
-foreach($indexedFile->iterate() as $row)
+foreach($indexedFile->iterate() as $key => $value)
 {
-    var_dump($row);
+    var_dump($key,$value);
 }
