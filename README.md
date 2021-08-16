@@ -103,10 +103,50 @@ Removing all entires
 
 ```php
 $indexedFile->truncate();
-```
+
 
 or when booting up
 
 ```php
 $indexedFile = new IndexedFile\File('/path/to/my/db.jsonl',true);
+```
+
+### Sorting
+
+Declare text sort
+```php
+$indexedFile->sort('title','ASC', 'string');
+```
+
+Declare integer sort
+```php
+$indexedFile->sort('count','DESC', 'int');
+```
+
+`includeSortStats` flag adds to the indexed object `_sort` meta field with `position` in sort and `percent` of total (integer only)
+```php
+$indexedFile->sort('count','DESC', 'int', true);
+```
+
+Own input and output files
+```php
+$indexedFile->sort('title','ASC', 'string',true, __DIR__.'/unsorted.csv', __DIR__.'/sorted.csv');
+```
+
+Example of use for sorting by price and list with an iterator 
+```php
+$indexedFile->sort('price','DESC', 'int');
+
+$indexedFile->insertIgnore($data['id'],[
+    'title' => $data['title'],
+    'price' => $data['price']
+]); 
+
+$indexedFile->runSort();
+
+foreach ($indexedFile->sortIterate() as $groupId => $row)
+{
+  echo 'Position: '. $row->_sort->position.' Percent: '.$row->_sort->position.' Index key: '. $groupId .' Price: '. $row->price."\n";
+}
+
 ```

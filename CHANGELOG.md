@@ -1,3 +1,6 @@
+### 1.0.5(2021-08-16)
+1. **Added sort to the Readme**
+
 ### 1.0.4 (2021-08-16)
 1. **Simpletools\Db\IndexedFile\File**
    1. Added `sort` method
