@@ -1,3 +1,10 @@
+### 1.0.4 (2021-08-16)
+1. **Simpletools\Db\IndexedFile\File**
+   1. Added `sort` method
+   2. Added `refreshSortStats` method
+   3. Added `sortIterate` method
+   3. Added `runSort` method
+
 ### 1.0.3 (2021-08-09)
 1. **Added Readme**
 2. **Simpletools\Db\IndexedFile\File**

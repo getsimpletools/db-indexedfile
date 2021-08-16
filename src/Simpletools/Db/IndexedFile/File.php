@@ -4,226 +4,343 @@ namespace Simpletools\Db\IndexedFile;
 
 class File
 {
-    protected $_dbStream;
-    protected $_dbIndex;
-    protected $_seekPosition = 0;
-    protected $_tombstoneChar = '-';
-    protected static $_indexStoreClass;
+	protected $_dbStream;
+	protected $_dbIndex;
+	protected $_seekPosition = 0;
+	protected $_tombstoneChar = '-';
+	protected static $_indexStoreClass;
+	protected $_sort;
 
-    const ROW_FORMAT_VERSION = '1';
+	const ROW_FORMAT_VERSION = '1';
 
-    public static function indexStoreClass($className)
-    {
-        self::$_indexStoreClass = $className;
-    }
+	public static function indexStoreClass($className)
+	{
+		self::$_indexStoreClass = $className;
+	}
 
-    public function __construct($dbFilePath = null, $truncate = false)
-    {
-        $indexStoreClass = self::$_indexStoreClass;
-        if(!$indexStoreClass)
-            $indexStoreClass = 'Simpletools\Db\IndexedFile\IndexStore\ArrayIndexStore';
-        elseif(!class_exists($indexStoreClass))
-            throw new \Exception("$indexStoreClass not found",404);
+	public function __construct($dbFilePath = null, $truncate = false)
+	{
+		$indexStoreClass = self::$_indexStoreClass;
+		if(!$indexStoreClass)
+			$indexStoreClass = 'Simpletools\Db\IndexedFile\IndexStore\ArrayIndexStore';
+		elseif(!class_exists($indexStoreClass))
+			throw new \Exception("$indexStoreClass not found",404);
 
-        $this->_dbIndex = new $indexStoreClass();
+		$this->_dbIndex = new $indexStoreClass();
 
-        if (!$dbFilePath)
-            $this->_dbStream = tmpfile();
-        else
-            $this->_dbStream = fopen($dbFilePath, 'c+');
+		if (!$dbFilePath)
+			$this->_dbStream = tmpfile();
+		else
+			$this->_dbStream = fopen($dbFilePath, 'c+');
 
-        flock($this->_dbStream,LOCK_EX);
 
-        if(!$truncate && $dbFilePath)
-        {
-            fseek($this->_dbStream, 0, SEEK_END);
-            $this->_seekPosition = ftell($this->_dbStream);
+		flock($this->_dbStream,LOCK_EX);
 
-            if ($this->_seekPosition > 0)
-                $this->_reconstructIndex();
-        }
-        elseif($truncate && $dbFilePath)
-        {
-            $this->truncate();
-        }
+		if(!$truncate && $dbFilePath)
+		{
+			fseek($this->_dbStream, 0, SEEK_END);
+			$this->_seekPosition = ftell($this->_dbStream);
 
-        $this->_log('startup', [
-            'time' => time(),
-            'rowFormatVer' => self::ROW_FORMAT_VERSION
-        ]);
-    }
+			if ($this->_seekPosition > 0)
+				$this->_reconstructIndex();
+		}
+		elseif($truncate && $dbFilePath)
+		{
+			$this->truncate();
+		}
 
-    public function truncate()
-    {
-        ftruncate($this->_dbStream,0);
-        fseek($this->_dbStream, 0, SEEK_CUR);
+		$this->_log('startup', [
+				'time' => time(),
+				'rowFormatVer' => self::ROW_FORMAT_VERSION
+		]);
+	}
 
-        $this->_dbIndex->flush();
-        $this->_seekPosition = 0;
+	public function sort($field, $order ='ASC', $type ='string', Bool $includeSortStats = true, $sortFilePath = null, $sortOutputFile=null)
+	{
+		$this->_sort = (object) [
+				'field' => $field,
+				'order' => strtoupper($order) =='ASC' ? 'ASC' : 'DESC',
+				'type' => strtolower($type) == 'string' ? 'string' : 'int',
+				'fp' => !$sortFilePath ? tmpfile() : fopen($sortFilePath, 'c+'),
+				'sortedFp' => !$sortOutputFile ? tmpfile() : fopen($sortOutputFile, 'c+'),
+				'sorted' => false,
+				'includeSortStats' => $includeSortStats,
+				'statsIncluded' => false,
+				'sum' => 0,
+				'count' =>0,
+				'labels' =>[]
+		];
 
-        $this->_log('truncate', [
-            'time' => time(),
-            'rowFormatVer' => self::ROW_FORMAT_VERSION
-        ]);
-    }
+		flock($this->_sort->fp,LOCK_EX);
+		flock($this->_sort->sortedFp,LOCK_EX);
+	}
 
-    protected function _reconstructIndex()
-    {
-        foreach($this->_iterate(true) as $row)
-        {
-            if(isset($row->log)) continue;
+	public function refreshSortStats()
+	{
+		$this->_sort->statsIncluded = true;
+		fseek($this->_sort->sortedFp, 0, SEEK_SET);
+		$position = 1;
+		$sort = $this->_sort;
+		while (($data = fgetcsv($this->_sort->sortedFp, 1000, ",")) !== FALSE)
+		{
+			$this->upsert($data[1], function ($row) use ($position,$sort, $data) {
+				if(!$row)
+					$row = (object)[];
 
-            $this->_dbIndex->insert($row->k,base_convert($row->pos,10,36));
-        }
-    }
+				$row->_sort =[
+						'position' => $position,
+				];
 
-    protected function _log($type,$meta)
-    {
-        fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
+				if($this->_sort->type =='int')
+					$row->_sort['percent'] = round($data[0]/$this->_sort->sum*100,2);
 
-        $log = [
-            'log'   => [
-                'type'    => $type,
-                'meta'    => $meta
-            ]
-        ];
+				return $row;
+			});
 
-        fwrite($this->_dbStream, json_encode($log) . "\n");
-        $this->_seekPosition = ftell($this->_dbStream);
-    }
+			$position++;
+		}
+	}
 
-    public function log($meta)
-    {
-        $this->_log('user',$meta);
-    }
+	public function sortIterate()
+	{
+		fseek($this->_sort->sortedFp, 0, SEEK_SET);
+		while (($data = fgetcsv($this->_sort->sortedFp, 1000, ",")) !== FALSE)
+		{
+			$item = $this->read($data[1]);
+			yield $data[1] => $item;
+		}
+	}
 
-    protected function _indexPosition($id)
-    {
-        $pos = $this->_dbIndex->read(((string) $id));
-        if ($pos === "" || $pos === null) return false;
+	protected function addToSort($key, $value)
+	{
+		fputcsv($this->_sort->fp,[$value, $key]);
 
-        return base_convert($pos, 36, 10);
-    }
+		$this->_sort->count++;
+		if($this->_sort->type =='int')
+			$this->_sort->sum +=$value;
+	}
 
-    protected function _tombstone($position)
-    {
-        fseek($this->_dbStream, $position, SEEK_SET);
-        fwrite($this->_dbStream, $this->_tombstoneChar);
-        fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
-    }
+	public function runSort()
+	{
+		if(!$this->_sort)
+		{
+			$this->close();
+			throw new \Exception('Sort not defined',400);
+		}
 
-    protected function _insert($key, $value, $position = null, $insertIgnore=false)
-    {
-        fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
+		$meta_data = stream_get_meta_data($this->_sort->fp);
+		$input = realpath($meta_data["uri"]);
 
-        if ($position === null) //internal otherwise, mainly used by upsert
-        {
-            $position = $this->_indexPosition($key);
+		$meta_data = stream_get_meta_data($this->_sort->sortedFp);
+		$output = realpath($meta_data["uri"]);
 
-            if($insertIgnore && $position !== false)
-                return false;
-        }
+		shell_exec('LC_ALL=C sort -S 500M -k1'.($this->_sort->order=='DESC'?'r':'').($this->_sort->type=='int'?'n':'f').' -o '.$output.' '.$input);
 
-        if ($position !== false)
-        {
-            $this->_tombstone($position);
-        }
+		if($this->_sort->includeSortStats)
+		{
+			$this->refreshSortStats();
+		}
+	}
 
-        $this->_dbIndex->insert((string)$key, base_convert($this->_seekPosition, 10, 36));
 
-        $line = json_encode(["k"=>$key,"v"=>$value]);
-        fwrite($this->_dbStream, $line . "\n");
-        $this->_seekPosition = ftell($this->_dbStream);
+	public function truncate()
+	{
+		ftruncate($this->_dbStream,0);
+		fseek($this->_dbStream, 0, SEEK_CUR);
 
-        return true;
-    }
+		$this->_dbIndex->flush();
+		$this->_seekPosition = 0;
 
-    public function insertIgnore($key, $value)
-    {
-        return $this->_insert($key,$value,null,true);
-    }
+		$this->_log('truncate', [
+				'time' => time(),
+				'rowFormatVer' => self::ROW_FORMAT_VERSION
+		]);
+	}
 
-    public function insert($key, $value)
-    {
-        return $this->_insert($key,$value);
-    }
+	protected function _reconstructIndex()
+	{
+		foreach($this->_iterate(true) as $row)
+		{
+			if(isset($row->log)) continue;
 
-    public function upsert($key, $updater)
-    {
-        fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
+			$this->_dbIndex->insert($row->k,base_convert($row->pos,10,36));
+		}
+	}
 
-        $position = $this->_indexPosition($key);
-        if ($position === false) {
-            $this->_insert($key, $updater(null), $position);
-        } else {
-            $row = $this->read($key);
-            $this->_tombstone($position);
-            $this->_insert($key, $updater($row));
-        }
-    }
+	protected function _log($type,$meta)
+	{
+		fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
 
-    public function read($key)
-    {
-        $position = $this->_indexPosition($key);
-        if ($position === false) return null;
+		$log = [
+				'log'   => [
+						'type'    => $type,
+						'meta'    => $meta
+				]
+		];
 
-        fseek($this->_dbStream, $position, SEEK_SET);
-        $row = fgets($this->_dbStream);
-        return json_decode($row)->v;
-    }
+		fwrite($this->_dbStream, json_encode($log) . "\n");
+		$this->_seekPosition = ftell($this->_dbStream);
+	}
 
-    public function remove($key)
-    {
-        $position = $this->_indexPosition($key);
-        if ($position === false) return false;
-        $this->_tombstone($position);
+	public function log($meta)
+	{
+		$this->_log('user',$meta);
+	}
 
-        $this->_dbIndex->remove($key);
+	protected function _indexPosition($id)
+	{
+		$pos = $this->_dbIndex->read(((string) $id));
+		if ($pos === "" || $pos === null) return false;
 
-        return true;
-    }
+		return base_convert($pos, 36, 10);
+	}
 
-    public function iterate()
-    {
-        foreach($this->_iterate() as $key => $value)
-        {
-            yield $key => $value;
-        }
-    }
+	protected function _tombstone($position)
+	{
+		fseek($this->_dbStream, $position, SEEK_SET);
+		fwrite($this->_dbStream, $this->_tombstoneChar);
+		fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
+	}
 
-    public function _iterate($returnRawRow=false)
-    {
-        fseek($this->_dbStream, 0, SEEK_SET);
+	protected function _insert($key, $value, $position = null, $insertIgnore=false)
+	{
+		fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
 
-        while (($line = fgets($this->_dbStream)) !== false)
-        {
-            if (substr($line, 0, 1) === $this->_tombstoneChar)
-                continue;
+		if ($position === null) //internal otherwise, mainly used by upsert
+		{
+			$position = $this->_indexPosition($key);
 
-            $row = json_decode($line);
-            $pos = ftell($this->_dbStream);
-            $pos -= strlen($line);
-            $row->pos = $pos;
+			if($insertIgnore && $position !== false)
+				return false;
+		}
 
-            if($returnRawRow)
-            {
-                yield $row;
-                continue;
-            }
+		if ($position !== false)
+		{
+			$this->_tombstone($position);
+		}
+		elseif ($this->_sort && !$this->_sort->statsIncluded)
+		{
+			if(is_array($value) && isset($value[$this->_sort->field]))
+				$this->addToSort($key,$value[$this->_sort->field]);
+			elseif(is_object($value) && isset($value->{$this->_sort->field}))
+				$this->addToSort($key,$value->{$this->_sort->field});
+		}
 
-            if(isset($row->log)) continue;
+		$this->_dbIndex->insert((string)$key, base_convert($this->_seekPosition, 10, 36));
 
-            yield $row->k => $row->v;
-        }
-    }
+		$line = json_encode(["k"=>$key,"v"=>$value]);
+		fwrite($this->_dbStream, $line . "\n");
+		$this->_seekPosition = ftell($this->_dbStream);
 
-    public function __destruct()
-    {
-        if ($this->_dbStream)
-        {
-            flock($this->_dbStream,LOCK_UN);
-            fclose($this->_dbStream);
-            unset($this->_dbIndex);
-        }
-    }
+		return true;
+	}
+
+	public function insertIgnore($key, $value)
+	{
+		return $this->_insert($key,$value,null,true);
+	}
+
+	public function insert($key, $value)
+	{
+		return $this->_insert($key,$value);
+	}
+
+	public function upsert($key, $updater)
+	{
+		fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
+
+		$position = $this->_indexPosition($key);
+		if ($position === false) {
+			$this->_insert($key, $updater(null), $position);
+		} else {
+			$row = $this->read($key);
+			$this->_tombstone($position);
+			$this->_insert($key, $updater($row));
+		}
+	}
+
+	public function read($key)
+	{
+		$position = $this->_indexPosition($key);
+		if ($position === false) return null;
+
+		fseek($this->_dbStream, $position, SEEK_SET);
+		$row = fgets($this->_dbStream);
+		return json_decode($row)->v;
+	}
+
+	public function remove($key)
+	{
+		$position = $this->_indexPosition($key);
+		if ($position === false) return false;
+		$this->_tombstone($position);
+
+		$this->_dbIndex->remove($key);
+
+		return true;
+	}
+
+	public function iterate()
+	{
+		foreach($this->_iterate() as $key => $value)
+		{
+			yield $key => $value;
+		}
+	}
+
+	protected function _iterate($returnRawRow=false)
+	{
+		fseek($this->_dbStream, 0, SEEK_SET);
+
+		while (($line = fgets($this->_dbStream)) !== false)
+		{
+			if (substr($line, 0, 1) === $this->_tombstoneChar)
+				continue;
+
+			$row = json_decode($line);
+			$pos = ftell($this->_dbStream);
+			$pos -= strlen($line);
+			$row->pos = $pos;
+
+			if($returnRawRow)
+			{
+				yield $row;
+				continue;
+			}
+
+			if(isset($row->log)) continue;
+
+			yield $row->k => $row->v;
+		}
+	}
+
+	public function close()
+	{
+		$this->__destruct();
+	}
+
+	public function __destruct()
+	{
+		if ($this->_dbStream)
+		{
+			flock($this->_dbStream,LOCK_UN);
+			fclose($this->_dbStream);
+			$this->_dbStream = null;
+			unset($this->_dbIndex);
+		}
+		if($this->_sort)
+		{
+			if($this->_sort->fp)
+			{
+				flock($this->_sort->fp,LOCK_UN);
+				fclose($this->_sort->fp);
+			}
+			if($this->_sort->sortedFp)
+			{
+				flock($this->_sort->sortedFp,LOCK_UN);
+				fclose($this->_sort->sortedFp);
+			}
+			$this->_sort = null;
+		}
+	}
 }
