@@ -1,3 +1,7 @@
+### 1.0.6 (2021-08-18)
+1. **Simpletools\Db\IndexedFile\File**
+    1. Added exception on empty key
+    
 ### 1.0.5(2021-08-16)
 1. **Added sort to the Readme**
 

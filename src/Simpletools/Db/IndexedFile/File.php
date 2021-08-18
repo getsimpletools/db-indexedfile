@@ -204,6 +204,9 @@ class File
 
 	protected function _insert($key, $value, $position = null, $insertIgnore=false)
 	{
+		if($key==='' || $key ===false || $key === null)
+			throw new \Exception("You can't insert empty key",400);
+
 		fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
 
 		if ($position === null) //internal otherwise, mainly used by upsert
