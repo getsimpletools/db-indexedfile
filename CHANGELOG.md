@@ -1,3 +1,7 @@
+### 1.0.7 (2021-12-21)
+1. **Simpletools\Db\IndexedFile\File**
+    1. Replaced `tmpfile` method to `sys_get_temp_dir`
+
 ### 1.0.6 (2021-08-18)
 1. **Simpletools\Db\IndexedFile\File**
     1. Added exception on empty key

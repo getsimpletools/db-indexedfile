@@ -29,7 +29,7 @@ class File
 		$this->_dbIndex = new $indexStoreClass();
 
 		if (!$dbFilePath)
-			$this->_dbStream = tmpfile();
+			$this->_dbStream = fopen(tempnam(sys_get_temp_dir(), 'indexedFile-'),'w+');
 		else
 			$this->_dbStream = fopen($dbFilePath, 'c+');
 
@@ -61,8 +61,8 @@ class File
 				'field' => $field,
 				'order' => strtoupper($order) =='ASC' ? 'ASC' : 'DESC',
 				'type' => strtolower($type) == 'string' ? 'string' : 'int',
-				'fp' => !$sortFilePath ? tmpfile() : fopen($sortFilePath, 'c+'),
-				'sortedFp' => !$sortOutputFile ? tmpfile() : fopen($sortOutputFile, 'c+'),
+				'fp' => !$sortFilePath ? fopen(tempnam(sys_get_temp_dir(), 'indexedFile-'),'w+') : fopen($sortFilePath, 'c+'),
+				'sortedFp' => !$sortOutputFile ? fopen(tempnam(sys_get_temp_dir(), 'indexedFile-'),'w+') : fopen($sortOutputFile, 'c+'),
 				'sorted' => false,
 				'includeSortStats' => $includeSortStats,
 				'statsIncluded' => false,
@@ -327,7 +327,15 @@ class File
 		if ($this->_dbStream)
 		{
 			flock($this->_dbStream,LOCK_UN);
-			fclose($this->_dbStream);
+			if(@stream_get_meta_data($this->_dbStream)['mode'] =='w+')
+			{
+					$path = stream_get_meta_data($this->_dbStream)['uri'];
+					fclose($this->_dbStream);
+					unlink($path);
+			}
+			else
+				fclose($this->_dbStream);
+
 			$this->_dbStream = null;
 			unset($this->_dbIndex);
 		}
@@ -336,12 +344,27 @@ class File
 			if($this->_sort->fp)
 			{
 				flock($this->_sort->fp,LOCK_UN);
-				fclose($this->_sort->fp);
+
+				if(@stream_get_meta_data($this->_sort->fp)['mode'] =='w+')
+				{
+					$path = stream_get_meta_data($this->_sort->fp)['uri'];
+					fclose($this->_sort->fp);
+					unlink($path);
+				}
+				else
+					fclose($this->_sort->fp);
 			}
 			if($this->_sort->sortedFp)
 			{
 				flock($this->_sort->sortedFp,LOCK_UN);
-				fclose($this->_sort->sortedFp);
+				if(@stream_get_meta_data($this->_sort->sortedFp)['mode'] =='w+')
+				{
+					$path = stream_get_meta_data($this->_sort->sortedFp)['uri'];
+					fclose($this->_sort->sortedFp);
+					unlink($path);
+				}
+				else
+					fclose($this->_sort->sortedFp);
 			}
 			$this->_sort = null;
 		}
