@@ -103,7 +103,7 @@ Removing all entires
 
 ```php
 $indexedFile->truncate();
-
+```
 
 or when booting up
 
