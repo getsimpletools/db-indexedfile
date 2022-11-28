@@ -1,3 +1,7 @@
+### 1.0.8 (2022-11-28)
+1. **Simpletools\Db\IndexedFile\File**
+   1. Added 400 code exception for when no `$key` (`null` or `empty string`) is being passed across `insert`, `insertIgnore`, `upsert`, `remove` and `read`
+   
 ### 1.0.7 (2021-12-21)
 1. **Simpletools\Db\IndexedFile\File**
     1. Replaced `tmpfile` method to `sys_get_temp_dir`

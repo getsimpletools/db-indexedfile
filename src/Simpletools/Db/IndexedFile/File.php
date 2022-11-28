@@ -240,16 +240,31 @@ class File
 
 	public function insertIgnore($key, $value)
 	{
+        if($key===null OR $key==="")
+        {
+            throw new \Exception("Key can't be empty",400);
+        }
+
 		return $this->_insert($key,$value,null,true);
 	}
 
 	public function insert($key, $value)
 	{
+        if($key===null OR $key==="")
+        {
+            throw new \Exception("Key can't be empty",400);
+        }
+
 		return $this->_insert($key,$value);
 	}
 
 	public function upsert($key, $updater)
 	{
+        if($key===null OR $key==="")
+        {
+            throw new \Exception("Key can't be empty",400);
+        }
+
 		fseek($this->_dbStream, $this->_seekPosition, SEEK_SET);
 
 		$position = $this->_indexPosition($key);
@@ -264,6 +279,11 @@ class File
 
 	public function read($key)
 	{
+        if($key===null OR $key==="")
+        {
+            throw new \Exception("Key can't be empty",400);
+        }
+
 		$position = $this->_indexPosition($key);
 		if ($position === false) return null;
 
@@ -274,6 +294,11 @@ class File
 
 	public function remove($key)
 	{
+        if($key===null OR $key==="")
+        {
+            throw new \Exception("Key can't be empty",400);
+        }
+
 		$position = $this->_indexPosition($key);
 		if ($position === false) return false;
 		$this->_tombstone($position);
