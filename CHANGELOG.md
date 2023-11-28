@@ -1,3 +1,7 @@
+### 1.0.9 (2023-11-28)
+1. **Simpletools\Db\IndexedFile\File**
+   1. Deduplicate sort file before sorting if upsert was used
+
 ### 1.0.8 (2022-11-28)
 1. **Simpletools\Db\IndexedFile\File**
    1. Added 400 code exception for when no `$key` (`null` or `empty string`) is being passed across `insert`, `insertIgnore`, `upsert`, `remove` and `read`

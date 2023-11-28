@@ -68,7 +68,8 @@ class File
 				'statsIncluded' => false,
 				'sum' => 0,
 				'count' =>0,
-				'labels' =>[]
+				'labels' =>[],
+				'needsDeDuplication' => false,
 		];
 
 		flock($this->_sort->fp,LOCK_EX);
@@ -133,6 +134,13 @@ class File
 
 		$meta_data = stream_get_meta_data($this->_sort->sortedFp);
 		$output = realpath($meta_data["uri"]);
+
+
+		if($this->_sort->needsDeDuplication)
+		{
+			shell_exec("awk -F, '{a[$2]=$0} END{for (i in a) print a[i]}' $input > $input.deduplicated.csv");
+			$input = $input.'.deduplicated.csv';
+		}
 
 		shell_exec('LC_ALL=C sort -S 500M -k1'.($this->_sort->order=='DESC'?'r':'').($this->_sort->type=='int'?'n':'f').' -o '.$output.' '.$input);
 
@@ -220,8 +228,12 @@ class File
 		if ($position !== false)
 		{
 			$this->_tombstone($position);
+			if ($this->_sort && !$this->_sort->statsIncluded)
+			{
+				$this->_sort->needsDeDuplication = true;
 		}
-		elseif ($this->_sort && !$this->_sort->statsIncluded)
+		}
+		if ($this->_sort && !$this->_sort->statsIncluded)
 		{
 			if(is_array($value) && isset($value[$this->_sort->field]))
 				$this->addToSort($key,$value[$this->_sort->field]);
