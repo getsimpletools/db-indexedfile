@@ -10,6 +10,7 @@ class File
 	protected $_tombstoneChar = '-';
 	protected static $_indexStoreClass;
 	protected $_sort;
+  protected $_readNextSeekPosition = 0;
 
 	const ROW_FORMAT_VERSION = '1';
 
@@ -303,6 +304,32 @@ class File
 		$row = fgets($this->_dbStream);
 		return json_decode($row)->v;
 	}
+
+  public function next($returnRawRow=false)
+  {
+    fseek($this->_dbStream, $this->_readNextSeekPosition, SEEK_SET);
+
+    while (($line = fgets($this->_dbStream)) !== false)
+    {
+      if (substr($line, 0, 1) === $this->_tombstoneChar)
+        continue;
+
+      $row = json_decode($line);
+      $pos = ftell($this->_dbStream);
+      //$pos -= strlen($line);
+      $this->_readNextSeekPosition = $pos;
+
+      if($returnRawRow)
+      {
+        return $row;
+      }
+
+      if(isset($row->log)) continue;
+
+      return $row->v;
+    }
+    return null;
+  }
 
 	public function remove($key)
 	{

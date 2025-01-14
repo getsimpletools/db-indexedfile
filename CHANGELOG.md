@@ -1,3 +1,7 @@
+### 1.0.10 (2025-01-14)
+1. **Simpletools\Db\IndexedFile\File**
+   1. Added `next` method for manual iteration
+
 ### 1.0.9 (2023-11-28)
 1. **Simpletools\Db\IndexedFile\File**
    1. Deduplicate sort file before sorting if upsert was used
