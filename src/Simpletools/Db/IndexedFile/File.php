@@ -122,6 +122,45 @@ class File
 			$this->_sort->sum +=$value;
 	}
 
+  public function reloadSort() // use before runSort, if you your data are grouped by key (not single entry per key)
+  {
+    $sortSetting = $this->_sort;;
+    if($this->_sort->fp)
+    {
+      flock($this->_sort->fp,LOCK_UN);
+
+      if(@stream_get_meta_data($this->_sort->fp)['mode'] =='w+')
+      {
+        $path = stream_get_meta_data($this->_sort->fp)['uri'];
+        fclose($this->_sort->fp);
+        unlink($path);
+      }
+      else
+        fclose($this->_sort->fp);
+    }
+    if($this->_sort->sortedFp)
+    {
+      flock($this->_sort->sortedFp,LOCK_UN);
+      if(@stream_get_meta_data($this->_sort->sortedFp)['mode'] =='w+')
+      {
+        $path = stream_get_meta_data($this->_sort->sortedFp)['uri'];
+        fclose($this->_sort->sortedFp);
+        unlink($path);
+      }
+      else
+        fclose($this->_sort->sortedFp);
+    }
+    $this->_sort = null;
+
+    $this->sort($sortSetting->field, $sortSetting->order, $sortSetting->type, $sortSetting->includeSortStats);
+
+    foreach ($this->_iterate() as $key => $row)
+    {
+      if($key !=='' && isset($row->{$this->_sort->field}))
+        $this->addToSort($key,$row->{$this->_sort->field});
+    }
+  }
+
 	public function runSort()
 	{
 		if(!$this->_sort)

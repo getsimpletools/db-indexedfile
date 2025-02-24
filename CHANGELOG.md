@@ -1,3 +1,7 @@
+### 1.0.11 (2025-02-24)
+1. **Simpletools\Db\IndexedFile\File**
+   1. Added `reloadSort` method for refresh sort if keys were grouped
+
 ### 1.0.10 (2025-01-14)
 1. **Simpletools\Db\IndexedFile\File**
    1. Added `next` method for manual iteration
